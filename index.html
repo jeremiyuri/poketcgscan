@@ -3,50 +3,69 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>PokéScan v2 (Código)</title>
+  <title>PokéScan Fun (recorte manual)</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="wrap">
-    <h2>📷 PokéScan v2 (por código)</h2>
+    <h2>📷 PokéScan Fun</h2>
     <p class="muted">
-      Apunta a la parte <b>inferior</b> de la carta (donde sale algo como <b>DRI 104/182</b>) y pulsa <b>Escanear</b>.
+      Truco para cartas brillantes: inclina un poquito la carta para evitar reflejos, y toma foto.
+      Luego mueve el recorte encima del <b>nombre</b> o del <b>código</b> (ej: <b>DRI 104/182</b>).
     </p>
 
     <div class="card">
-      <video id="video" playsinline autoplay muted></video>
-
-      <canvas id="frame" class="hidden"></canvas>
-      <canvas id="crop" class="preview hidden"></canvas>
-
       <div class="row">
         <button id="btnStart">Activar cámara</button>
-        <button id="btnScan" disabled>Escanear</button>
-        <button id="btnToggleCrop" disabled>Ver recorte</button>
+        <button id="btnSnap" disabled>Tomar foto</button>
+        <label class="fileBtn">
+          Subir foto
+          <input id="file" type="file" accept="image/*" capture="environment" />
+        </label>
         <span class="pill" id="status">Listo</span>
       </div>
 
       <div class="bar"><div id="prog"></div></div>
       <div class="muted" id="log"></div>
 
-      <div class="hint">
-        <div class="muted"><b>Tip:</b> baja un poco el brillo y evita reflejos. El código de abajo es lo más “fijo”.</div>
+      <video id="video" playsinline autoplay muted></video>
+
+      <!-- Editor con recorte -->
+      <div id="editor" class="editor hidden">
+        <div class="editorTop">
+          <button id="btnPresetName" class="ghost">🎯 Nombre</button>
+          <button id="btnPresetCode" class="ghost">🎯 Código</button>
+          <button id="btnOCR" class="primary">🧠 OCR del recorte</button>
+          <button id="btnSearch" class="ghost" disabled>🔎 Buscar carta</button>
+        </div>
+
+        <div class="stage" id="stage">
+          <canvas id="photo"></canvas>
+          <div id="cropBox" class="cropBox" role="application" aria-label="Recorte"></div>
+          <div id="handles" class="handles">
+            <div class="h tl" data-handle="tl"></div>
+            <div class="h tr" data-handle="tr"></div>
+            <div class="h bl" data-handle="bl"></div>
+            <div class="h br" data-handle="br"></div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div>
+            <div class="muted">Texto OCR:</div>
+            <textarea id="ocrText" placeholder="Aquí saldrá lo detectado…"></textarea>
+          </div>
+          <div>
+            <div class="muted">Código encontrado / editable:</div>
+            <input id="codeBox" placeholder="Ej: DRI 104/182" />
+            <div class="muted" style="margin-top:8px;">
+              También puedes escribir el nombre aquí arriba y usar “Buscar carta”.
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div class="grid2">
-        <div>
-          <div class="muted">Texto detectado:</div>
-          <input id="rawBox" placeholder="(salida OCR)" />
-        </div>
-        <div>
-          <div class="muted">Código encontrado:</div>
-          <input id="codeBox" placeholder="Ej: DRI 104/182" />
-        </div>
-      </div>
-
-      <div class="row">
-        <button id="btnSearch" disabled>Buscar por código</button>
-      </div>
+      <canvas id="hiddenWork" class="hidden"></canvas>
     </div>
 
     <div class="card">
