@@ -3,105 +3,50 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-  <title>PokéScan (OCR)</title>
-  <style>
-    :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
-    body { margin:0; background:#0b1220; color:#e5e7eb; }
-    .wrap { max-width: 560px; margin: 0 auto; padding: 14px; }
-    .card {
-      background: rgba(255,255,255,.06);
-      border: 1px solid rgba(255,255,255,.10);
-      border-radius: 16px;
-      padding: 12px;
-      box-shadow: 0 12px 30px rgba(0,0,0,.35);
-    }
-    .row { display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
-    button{
-      appearance:none; border:0; border-radius: 14px; padding: 12px 14px;
-      background: #2563eb; color:white; font-weight: 800; cursor:pointer;
-      box-shadow: 0 10px 20px rgba(37,99,235,.25);
-    }
-    button:disabled{ opacity:.5; cursor:not-allowed; }
-    .muted { color:#94a3b8; font-size: 13px; line-height: 1.4; }
-    video, canvas.preview { width:100%; border-radius: 14px; background:#000; }
-    .bar { height: 10px; background: rgba(255,255,255,.10); border-radius: 999px; overflow:hidden; }
-    .bar > div { height:100%; width:0%; background: #22c55e; transition: width .2s; }
-    img { width: 100%; border-radius: 14px; }
-    .pill {
-      display:inline-block; padding:6px 10px; border-radius: 999px;
-      border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
-      font-size: 13px;
-    }
-    input {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06);
-      color:#e5e7eb;
-      outline: none;
-      font-size: 15px;
-    }
-    .hint {
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px dashed rgba(255,255,255,.16);
-      background: rgba(255,255,255,.04);
-      margin-top: 10px;
-    }
-    details { margin-top: 10px; }
-    summary { cursor: pointer; color:#cbd5e1; }
-  </style>
+  <title>PokéScan v2 (Código)</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
   <div class="wrap">
-    <h2 style="margin: 4px 0 10px;">📷 PokéScan (OCR)</h2>
-    <p class="muted" style="margin-top:0;">
-      Enfoca la carta (idealmente la parte del nombre) y pulsa <b>Escanear</b>.
-      Mejor con buena luz y sin reflejos.
+    <h2>📷 PokéScan v2 (por código)</h2>
+    <p class="muted">
+      Apunta a la parte <b>inferior</b> de la carta (donde sale algo como <b>DRI 104/182</b>) y pulsa <b>Escanear</b>.
     </p>
 
-    <div class="card" style="margin-bottom:12px;">
+    <div class="card">
       <video id="video" playsinline autoplay muted></video>
 
-      <!-- canvases internos (uno para frame y otro para recorte + preproceso) -->
-      <canvas id="frame" style="display:none;"></canvas>
-      <canvas id="crop" class="preview" style="display:none;"></canvas>
+      <canvas id="frame" class="hidden"></canvas>
+      <canvas id="crop" class="preview hidden"></canvas>
 
-      <div class="row" style="margin-top:10px;">
+      <div class="row">
         <button id="btnStart">Activar cámara</button>
         <button id="btnScan" disabled>Escanear</button>
         <button id="btnToggleCrop" disabled>Ver recorte</button>
         <span class="pill" id="status">Listo</span>
       </div>
 
-      <div style="margin-top:10px;">
-        <div class="bar"><div id="prog"></div></div>
-        <div class="muted" id="log" style="margin-top:6px;"></div>
-      </div>
+      <div class="bar"><div id="prog"></div></div>
+      <div class="muted" id="log"></div>
 
       <div class="hint">
-        <div class="muted" style="margin-bottom:6px;"><b>Tip rápido:</b> inclina un poquito la carta para evitar reflejos.</div>
-        <div class="muted">Si el OCR falla, prueba acercar la cámara y que el nombre quede nítido.</div>
+        <div class="muted"><b>Tip:</b> baja un poco el brillo y evita reflejos. El código de abajo es lo más “fijo”.</div>
       </div>
 
-      <div style="margin-top:12px;">
-        <div class="muted">Nombre detectado (puedes editarlo):</div>
-        <input id="nameBox" placeholder="Ej: Pikachu" />
-        <div class="row" style="margin-top:10px;">
-          <button id="btnSearch" disabled>Buscar carta</button>
+      <div class="grid2">
+        <div>
+          <div class="muted">Texto detectado:</div>
+          <input id="rawBox" placeholder="(salida OCR)" />
+        </div>
+        <div>
+          <div class="muted">Código encontrado:</div>
+          <input id="codeBox" placeholder="Ej: DRI 104/182" />
         </div>
       </div>
 
-      <details>
-        <summary>⚙️ Ajustes finos (por si tu cámara recorta raro)</summary>
-        <div class="muted" style="margin-top:8px;">
-          Estos números controlan el recorte del nombre. Si tu celular encuadra distinto,
-          podemos ajustarlos.<br/>
-          <b>Por defecto:</b> toma una franja superior y solo el lado izquierdo (para evitar el HP).
-        </div>
-      </details>
+      <div class="row">
+        <button id="btnSearch" disabled>Buscar por código</button>
+      </div>
     </div>
 
     <div class="card">
@@ -109,254 +54,7 @@
     </div>
   </div>
 
-  <!-- Tesseract.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <script>
-    const video = document.getElementById('video');
-    const frame = document.getElementById('frame');
-    const crop = document.getElementById('crop');
-
-    const btnStart = document.getElementById('btnStart');
-    const btnScan = document.getElementById('btnScan');
-    const btnSearch = document.getElementById('btnSearch');
-    const btnToggleCrop = document.getElementById('btnToggleCrop');
-
-    const statusEl = document.getElementById('status');
-    const logEl = document.getElementById('log');
-    const progEl = document.getElementById('prog');
-    const nameBox = document.getElementById('nameBox');
-    const resultEl = document.getElementById('result');
-
-    let stream = null;
-    let showCrop = false;
-
-    function setStatus(txt) { statusEl.textContent = txt; }
-    function setLog(txt) { logEl.textContent = txt || ""; }
-    function setProg(p) { progEl.style.width = `${Math.max(0, Math.min(100, p))}%`; }
-
-    function cleanName(text) {
-      return (text || "")
-        .replace(/\s+/g, " ")
-        .replace(/[^\p{L}\s'’-]/gu, "") // solo letras/espacios/apóstrofes/guiones
-        .trim();
-    }
-
-    function normalizeForSearch(s) {
-      return (s || "")
-        .replace(/\bVSTAR\b/gi, "")
-        .replace(/\bVMAX\b/gi, "")
-        .replace(/\bV\b/gi, "")
-        .replace(/\bEX\b/gi, "")
-        .replace(/\bGX\b/gi, "")
-        .replace(/\bLV\.?\s*\d+\b/gi, "")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
-    async function fetchCardsByQuery(q) {
-      const url = `https://api.pokemontcg.io/v2/cards?q=${encodeURIComponent(q)}&pageSize=6`;
-      const res = await fetch(url);
-      return res.json();
-    }
-
-    btnToggleCrop.onclick = () => {
-      showCrop = !showCrop;
-      crop.style.display = showCrop ? "block" : "none";
-      btnToggleCrop.textContent = showCrop ? "Ocultar recorte" : "Ver recorte";
-    };
-
-    btnStart.onclick = async () => {
-  try {
-    setStatus("Pidiendo permisos…");
-    setLog("");
-    setProg(0);
-
-    // Si había un stream anterior, lo apagamos
-    if (stream) {
-      stream.getTracks().forEach(t => t.stop());
-      stream = null;
-    }
-
-    // 1) Intento: cámara trasera (modo compatible)
-    try {
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }, // <-- más compatible que {ideal:...}
-        audio: false
-      });
-    } catch (e1) {
-      // 2) Fallback: cualquier cámara
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: true,
-        audio: false
-      });
-    }
-
-    video.srcObject = stream;
-
-    // iOS a veces necesita play explícito después de asignar srcObject
-    await video.play();
-
-    btnScan.disabled = false;
-    btnToggleCrop.disabled = false;
-    setStatus("Cámara OK ✅");
-  } catch (e) {
-    console.error(e);
-    setStatus("Error ❌");
-    setLog("No se pudo acceder a la cámara. Prueba abrir en Chrome/Safari (no navegador interno) y revisa permisos del sitio.");
-  }
-};
-
-
-    btnScan.onclick = async () => {
-      try {
-        btnScan.disabled = true;
-        btnSearch.disabled = true;
-        nameBox.value = "";
-        resultEl.textContent = "Escaneando…";
-        setStatus("Capturando…");
-        setProg(0);
-
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-
-        frame.width = w; frame.height = h;
-        const fctx = frame.getContext("2d", { willReadFrequently: true });
-        fctx.drawImage(video, 0, 0, w, h);
-
-        // ✅ RECORTE MEJORADO:
-        // - franja superior (nombre)
-        // - solo lado izquierdo para evitar "HP" que está a la derecha
-        const cropX = Math.round(w * 0.06);
-        const cropY = Math.round(h * 0.03);
-        const cropW = Math.round(w * 0.62);
-        const cropH = Math.round(h * 0.16);
-
-        crop.width = cropW;
-        crop.height = cropH;
-        const cctx = crop.getContext("2d", { willReadFrequently: true });
-        cctx.drawImage(frame, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
-        // ✅ PREPROCESADO: blanco/negro con contraste
-        const imgData = cctx.getImageData(0, 0, cropW, cropH);
-        const d = imgData.data;
-
-        // Si queda muy blanco o muy negro, ajusta el threshold (150-185 suele ir bien)
-        const threshold = 165;
-
-        for (let i = 0; i < d.length; i += 4) {
-          const r = d[i], g = d[i+1], b = d[i+2];
-          let v = (0.299*r + 0.587*g + 0.114*b);     // grayscale
-          v = (v - 128) * 1.35 + 128;                 // contraste
-          const bw = v > threshold ? 255 : 0;          // umbral
-          d[i] = d[i+1] = d[i+2] = bw;
-        }
-        cctx.putImageData(imgData, 0, 0);
-
-        setStatus("OCR…");
-
-        // ✅ OCR optimizado para una línea
-        const { data } = await Tesseract.recognize(crop, "eng", {
-          logger: m => {
-            if (m.status === "recognizing text") setProg(Math.round((m.progress || 0) * 100));
-            setLog(`${m.status}${m.progress != null ? " " + Math.round(m.progress*100) + "%" : ""}`);
-          },
-          tessedit_pageseg_mode: Tesseract.PSM.SINGLE_LINE
-        });
-
-        const raw = (data.text || "")
-          .replace(/\n/g, " ")
-          .replace(/\s+/g, " ")
-          .trim();
-
-        const name = cleanName(raw);
-        nameBox.value = name;
-        setProg(100);
-
-        if (name.length >= 3) {
-          setStatus("Nombre detectado ✅");
-          btnSearch.disabled = false;
-          resultEl.innerHTML = `<div class="pill">Detectado:</div> <b>${name}</b><div class="muted" style="margin-top:8px;">Pulsa “Buscar carta”.</div>`;
-        } else {
-          setStatus("No se leyó bien ⚠️");
-          resultEl.innerHTML = `<div class="muted">No pude detectar un nombre claro. Prueba con más luz, sin reflejos, y enfoca el nombre.</div>`;
-        }
-      } catch (e) {
-        console.error(e);
-        setStatus("Error ❌");
-        setLog("Falló el OCR. Prueba otra vez.");
-      } finally {
-        btnScan.disabled = false;
-      }
-    };
-
-    btnSearch.onclick = async () => {
-      const name = cleanName(nameBox.value);
-      if (!name) return;
-
-      try {
-        btnSearch.disabled = true;
-        setStatus("Buscando…");
-        resultEl.textContent = "Buscando en Pokémon TCG API…";
-
-        // 1) Match exacto
-        let json = await fetchCardsByQuery(`name:"${name}"`);
-        let cards = json?.data || [];
-
-        // 2) Match tolerante (contiene)
-        if (!cards.length) {
-          json = await fetchCardsByQuery(`name:${name}*`);
-          cards = json?.data || [];
-        }
-
-        // 3) Match tolerante con nombre simplificado (quita EX/VMAX/etc.)
-        if (!cards.length) {
-          const simplified = normalizeForSearch(name);
-          if (simplified && simplified !== name) {
-            json = await fetchCardsByQuery(`name:${simplified}*`);
-            cards = json?.data || [];
-          }
-        }
-
-        if (!cards.length) {
-          setStatus("Sin match 😅");
-          resultEl.innerHTML = `<div class="muted">No encontré resultados para <b>${name}</b>. Prueba editando el nombre (ej: “Charizard”, “Pikachu”).</div>`;
-          return;
-        }
-
-        setStatus("Listo ✅");
-
-        const items = cards.map(c => {
-          const img = c?.images?.small || c?.images?.large || "";
-          const setName = c?.set?.name || "";
-          const number = c?.number || "";
-          const rarity = c?.rarity || "";
-          return `
-            <div style="margin-top:12px;">
-              ${img ? `<img src="${img}" alt="${c.name}">` : ""}
-              <div style="margin-top:8px;"><b>${c.name}</b> <span class="muted">(${setName} #${number})</span></div>
-              <div class="muted">${rarity ? "⭐ " + rarity : ""}</div>
-            </div>
-          `;
-        }).join("");
-
-        resultEl.innerHTML = `
-          <div class="pill">Resultados:</div>
-          <div class="muted" style="margin-top:8px;">Si sale más de una, elige visualmente la correcta.</div>
-          ${items}
-        `;
-      } catch (e) {
-        console.error(e);
-        setStatus("Error ❌");
-        resultEl.textContent = "Error consultando la API.";
-      } finally {
-        btnSearch.disabled = false;
-      }
-    };
-
-    nameBox.addEventListener("input", () => {
-      btnSearch.disabled = cleanName(nameBox.value).length < 3;
-    });
-  </script>
+  <script src="app.js"></script>
 </body>
 </html>
