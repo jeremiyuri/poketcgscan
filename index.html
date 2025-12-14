@@ -7,45 +7,72 @@
   <style>
     :root { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; }
     body { margin:0; background:#0b1220; color:#e5e7eb; }
-    .wrap { max-width: 520px; margin: 0 auto; padding: 14px; }
-    .card { background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.10);
-            border-radius: 16px; padding: 12px; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+    .wrap { max-width: 560px; margin: 0 auto; padding: 14px; }
+    .card {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius: 16px;
+      padding: 12px;
+      box-shadow: 0 12px 30px rgba(0,0,0,.35);
+    }
     .row { display:flex; gap:10px; flex-wrap: wrap; align-items:center; }
-    button {
+    button{
       appearance:none; border:0; border-radius: 14px; padding: 12px 14px;
-      background: #2563eb; color:white; font-weight: 700; cursor:pointer;
+      background: #2563eb; color:white; font-weight: 800; cursor:pointer;
       box-shadow: 0 10px 20px rgba(37,99,235,.25);
     }
-    button:disabled { opacity:.5; cursor:not-allowed; }
-    .muted { color:#94a3b8; font-size: 13px; }
-    video { width:100%; border-radius: 14px; background:black; }
-    canvas { width:100%; border-radius: 14px; display:none; }
+    button:disabled{ opacity:.5; cursor:not-allowed; }
+    .muted { color:#94a3b8; font-size: 13px; line-height: 1.4; }
+    video, canvas.preview { width:100%; border-radius: 14px; background:#000; }
     .bar { height: 10px; background: rgba(255,255,255,.10); border-radius: 999px; overflow:hidden; }
     .bar > div { height:100%; width:0%; background: #22c55e; transition: width .2s; }
     img { width: 100%; border-radius: 14px; }
-    .pill { display:inline-block; padding:6px 10px; border-radius: 999px;
-            border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); }
-    input {
-      width: 100%; padding: 10px 12px; border-radius: 12px; border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.06); color:#e5e7eb;
+    .pill {
+      display:inline-block; padding:6px 10px; border-radius: 999px;
+      border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06);
+      font-size: 13px;
     }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.06);
+      color:#e5e7eb;
+      outline: none;
+      font-size: 15px;
+    }
+    .hint {
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px dashed rgba(255,255,255,.16);
+      background: rgba(255,255,255,.04);
+      margin-top: 10px;
+    }
+    details { margin-top: 10px; }
+    summary { cursor: pointer; color:#cbd5e1; }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <h2 style="margin: 4px 0 10px;">📷 PokéScan (OCR)</h2>
     <p class="muted" style="margin-top:0;">
-      Enfoca la carta y pulsa <b>Escanear</b>. Mejor con buena luz y sin reflejos.
+      Enfoca la carta (idealmente la parte del nombre) y pulsa <b>Escanear</b>.
+      Mejor con buena luz y sin reflejos.
     </p>
 
     <div class="card" style="margin-bottom:12px;">
       <video id="video" playsinline autoplay muted></video>
-      <canvas id="frame"></canvas>
-      <canvas id="crop"></canvas>
+
+      <!-- canvases internos (uno para frame y otro para recorte + preproceso) -->
+      <canvas id="frame" style="display:none;"></canvas>
+      <canvas id="crop" class="preview" style="display:none;"></canvas>
 
       <div class="row" style="margin-top:10px;">
         <button id="btnStart">Activar cámara</button>
         <button id="btnScan" disabled>Escanear</button>
+        <button id="btnToggleCrop" disabled>Ver recorte</button>
         <span class="pill" id="status">Listo</span>
       </div>
 
@@ -54,195 +81,10 @@
         <div class="muted" id="log" style="margin-top:6px;"></div>
       </div>
 
-      <div style="margin-top:12px;">
-        <div class="muted">Nombre detectado (editable):</div>
-        <input id="nameBox" placeholder="Ej: Pikachu" />
-        <div class="row" style="margin-top:10px;">
-          <button id="btnSearch" disabled>Buscar carta</button>
-        </div>
+      <div class="hint">
+        <div class="muted" style="margin-bottom:6px;"><b>Tip rápido:</b> inclina un poquito la carta para evitar reflejos.</div>
+        <div class="muted">Si el OCR falla, prueba acercar la cámara y que el nombre quede nítido.</div>
       </div>
-    </div>
 
-    <div class="card">
-      <div id="result" class="muted">Sin resultados aún.</div>
-    </div>
-  </div>
-
-  <!-- Tesseract.js CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
-
-  <script>
-    const video = document.getElementById('video');
-    const frame = document.getElementById('frame');
-    const crop = document.getElementById('crop');
-    const btnStart = document.getElementById('btnStart');
-    const btnScan = document.getElementById('btnScan');
-    const btnSearch = document.getElementById('btnSearch');
-    const statusEl = document.getElementById('status');
-    const logEl = document.getElementById('log');
-    const progEl = document.getElementById('prog');
-    const nameBox = document.getElementById('nameBox');
-    const resultEl = document.getElementById('result');
-
-    let stream = null;
-
-    function setStatus(txt) { statusEl.textContent = txt; }
-    function setLog(txt) { logEl.textContent = txt || ""; }
-    function setProg(p) { progEl.style.width = `${Math.max(0, Math.min(100, p))}%`; }
-
-    function cleanName(text) {
-      // Limpieza agresiva: solo letras/espacios/apóstrofes/guiones
-      return (text || "")
-        .replace(/\s+/g, " ")
-        .replace(/[^\p{L}\s'’-]/gu, "")
-        .trim();
-    }
-
-    btnStart.onclick = async () => {
-      try {
-        setStatus("Pidiendo permisos…");
-        setLog("");
-        setProg(0);
-
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: "environment" },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
-          },
-          audio: false
-        });
-
-        video.srcObject = stream;
-        await video.play();
-
-        btnScan.disabled = false;
-        setStatus("Cámara OK ✅");
-      } catch (e) {
-        console.error(e);
-        setStatus("Error ❌");
-        setLog("No se pudo acceder a la cámara. Asegúrate de abrir esto en HTTPS y dar permisos.");
-      }
-    };
-
-    btnScan.onclick = async () => {
-      try {
-        btnScan.disabled = true;
-        btnSearch.disabled = true;
-        nameBox.value = "";
-        resultEl.textContent = "Escaneando…";
-        setStatus("Capturando…");
-        setProg(0);
-
-        // 1) Capturar frame
-        const w = video.videoWidth;
-        const h = video.videoHeight;
-        frame.width = w; frame.height = h;
-        const fctx = frame.getContext("2d");
-        fctx.drawImage(video, 0, 0, w, h);
-
-        // 2) Recortar la franja superior (donde suele estar el nombre)
-        // Ajusta estos porcentajes si quieres.
-        const topH = Math.round(h * 0.18);
-        crop.width = w;
-        crop.height = topH;
-        const cctx = crop.getContext("2d");
-        cctx.drawImage(frame, 0, 0, w, topH, 0, 0, w, topH);
-
-        setStatus("OCR…");
-
-        // 3) OCR
-        const { data } = await Tesseract.recognize(crop, "eng", {
-          logger: m => {
-            if (m.status === "recognizing text") setProg(Math.round((m.progress || 0) * 100));
-            setLog(`${m.status}${m.progress != null ? " " + Math.round(m.progress*100) + "%" : ""}`);
-          }
-        });
-
-        const raw = (data.text || "").split("\n").map(s => s.trim()).filter(Boolean);
-        // Tomamos la línea "más probable": la más larga (suele ser el nombre)
-        const best = raw.sort((a,b) => b.length - a.length)[0] || "";
-        const name = cleanName(best);
-
-        nameBox.value = name;
-        setProg(100);
-
-        if (name.length >= 3) {
-          setStatus("Nombre detectado ✅");
-          btnSearch.disabled = false;
-          resultEl.innerHTML = `<div class="pill">Detectado:</div> <b>${name}</b><div class="muted" style="margin-top:8px;">Pulsa “Buscar carta”.</div>`;
-        } else {
-          setStatus("No se leyó bien ⚠️");
-          resultEl.innerHTML = `<div class="muted">No pude detectar un nombre claro. Prueba con más luz y enfocando la parte superior.</div>`;
-        }
-      } catch (e) {
-        console.error(e);
-        setStatus("Error ❌");
-        setLog("Falló el OCR. Prueba otra vez.");
-      } finally {
-        btnScan.disabled = false;
-      }
-    };
-
-    btnSearch.onclick = async () => {
-      const name = cleanName(nameBox.value);
-      if (!name) return;
-
-      try {
-        btnSearch.disabled = true;
-        setStatus("Buscando…");
-        resultEl.textContent = "Buscando en Pokémon TCG API…";
-
-        // Pokémon TCG API v2: /v2/cards?q=name:"Pikachu"
-        const q = encodeURIComponent(`name:"${name}"`);
-        const url = `https://api.pokemontcg.io/v2/cards?q=${q}&pageSize=6`;
-
-        // Si algún día quieres tu API key (mejor rate limit):
-        // headers: { "X-Api-Key": "TU_API_KEY" }
-        const res = await fetch(url);
-        const json = await res.json();
-
-        const cards = json?.data || [];
-        if (!cards.length) {
-          setStatus("Sin match 😅");
-          resultEl.innerHTML = `<div class="muted">No encontré coincidencias exactas para <b>${name}</b>. Prueba editándolo (ej: “Charizard”).</div>`;
-          return;
-        }
-
-        setStatus("Listo ✅");
-
-        const items = cards.map(c => {
-          const img = c?.images?.small || c?.images?.large || "";
-          const setName = c?.set?.name || "";
-          const number = c?.number || "";
-          const rarity = c?.rarity || "";
-          return `
-            <div style="margin-top:12px;">
-              ${img ? `<img src="${img}" alt="${c.name}">` : ""}
-              <div style="margin-top:8px;"><b>${c.name}</b> <span class="muted">(${setName} #${number})</span></div>
-              <div class="muted">${rarity ? "⭐ " + rarity : ""}</div>
-            </div>
-          `;
-        }).join("");
-
-        resultEl.innerHTML = `
-          <div class="pill">Resultados:</div>
-          <div class="muted" style="margin-top:8px;">Si sale más de una, elige visualmente la correcta.</div>
-          ${items}
-        `;
-      } catch (e) {
-        console.error(e);
-        setStatus("Error ❌");
-        resultEl.textContent = "Error consultando la API.";
-      } finally {
-        btnSearch.disabled = false;
-      }
-    };
-
-    // UX: habilitar buscar si el usuario edita el nombre
-    nameBox.addEventListener("input", () => {
-      btnSearch.disabled = cleanName(nameBox.value).length < 3;
-    });
-  </script>
-</body>
-</html>
+      <div style="margin-top:12px;">
+        <div class="muted">Nombre detectado (puedes editarlo
